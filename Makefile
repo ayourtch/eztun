@@ -1,17 +1,16 @@
 
 include $(TOPDIR)/rules.mk
-include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=eztun
 PKG_VERSION:=0000000
+PKG_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/package.mk
 
 define Package/eztun
+  SECTION:=Development
   DEPENDS:=+kmod-tun
   TITLE:=Easy and not very secure UDP tunneling daemon
-  SECTION:=EzTun
-  SUBMENU:=Network
   FILES:=$(PKG_BUILD_DIR)/eztun/eztun
 endef
 
@@ -38,7 +37,7 @@ define Package/eztun/install
 	$(CP) -r ./files/* $(1)/
 endef
 
-$(eval $(call Package,nat46))
+$(eval $(call BuildPackage,eztun))
 
 
 
