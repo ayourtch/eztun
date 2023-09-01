@@ -1,5 +1,5 @@
 all:
-	gcc -o eztun eztun.c
+	gcc -o eztunnel eztunnel.c
 clean:
-	rm -f eztun eztun.o
+	rm -f eztunnel
 

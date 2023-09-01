@@ -59,7 +59,7 @@ void daemonize() {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: daemon_tun <IP1> <IP2> ...");
+        fprintf(stderr, "Usage: eztunnel <LocalBindAddress> <IP1> <IP2> ...\n");
         exit(EXIT_FAILURE);
     }
 
@@ -68,12 +68,12 @@ int main(int argc, char *argv[]) {
     char buffer[BUF_SIZE];
     int udp_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (udp_fd < 0) handle_error("UDP socket creation failed");
-    int tun_fds[argc - 1];
+    int tun_fds[argc - 2];
 
-    for (int i = 1; i < argc; i++) {
+    for (int i = 2; i < argc; i++) {
         char tun_name[10];
-        sprintf(tun_name, "tun%d", i - 1);
-        tun_fds[i - 1] = tun_alloc(tun_name);
+        sprintf(tun_name, "tun%d", i - 2);
+        tun_fds[i - 2] = tun_alloc(tun_name);
     }
 
     struct sockaddr_in server;
@@ -81,6 +81,9 @@ int main(int argc, char *argv[]) {
     server.sin_family = AF_INET;
     server.sin_port = htons(PORT);
     server.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (inet_pton(AF_INET, argv[1], &(server.sin_addr)) != 1) {
+        handle_error("Invalid local bind address");
+    }
     if (bind(udp_fd, (struct sockaddr*)&server, sizeof(server)) < 0) {
         handle_error("Bind failed");
     }
@@ -89,14 +92,14 @@ int main(int argc, char *argv[]) {
         fd_set read_fds;
         FD_ZERO(&read_fds);
         FD_SET(udp_fd, &read_fds);
-        for (int i = 0; i < argc - 1; i++)
+        for (int i = 0; i < argc - 2; i++)
             FD_SET(tun_fds[i], &read_fds);
 
         if (select(FD_SETSIZE, &read_fds, NULL, NULL, NULL) < 0) {
             handle_error("Select failed");
         }
 
-        for (int i = 0; i < argc - 1; i++) {
+        for (int i = 0; i < argc - 2; i++) {
             if (FD_ISSET(tun_fds[i], &read_fds)) {
                 int len = read(tun_fds[i], buffer, sizeof(buffer));
                 if (len < 0) {
@@ -106,7 +109,7 @@ int main(int argc, char *argv[]) {
                 struct sockaddr_in dest;
                 dest.sin_family = AF_INET;
                 dest.sin_port = htons(PORT);
-                inet_pton(AF_INET, argv[i + 1], &(dest.sin_addr));
+                inet_pton(AF_INET, argv[i + 2], &(dest.sin_addr));
                 if (sendto(udp_fd, buffer, len, 0, (struct sockaddr*)&dest, sizeof(dest)) < 0) {
                     log_message("Failed sending UDP packet");
                 }
@@ -123,9 +126,9 @@ int main(int argc, char *argv[]) {
             }
             char client_ip[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &(client.sin_addr), client_ip, INET_ADDRSTRLEN);
-            for (int i = 1; i < argc; i++) {
+            for (int i = 2; i < argc; i++) {
                 if (strcmp(client_ip, argv[i]) == 0) {
-                    if (write(tun_fds[i - 1], buffer, len) < 0) {
+                    if (write(tun_fds[i - 2], buffer, len) < 0) {
                         log_message("Failed writing to TUN interface");
                     }
                 }
@@ -133,7 +136,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    for (int i = 0; i < argc - 1; i++)
+    for (int i = 0; i < argc - 2; i++)
         close(tun_fds[i]);
     close(udp_fd);
 
